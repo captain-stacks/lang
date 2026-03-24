@@ -83,12 +83,14 @@ export default function Home() {
           const data = line.slice(6);
           if (data === '[DONE]') break;
           try {
-            const { text: chunk } = JSON.parse(data);
-            fullText += chunk;
-            setMessages(prev => [
-              ...prev.slice(0, -1),
-              { role: 'assistant', content: fullText },
-            ]);
+            const parsed = JSON.parse(data);
+            if (typeof parsed.text === 'string') {
+              fullText += parsed.text;
+              setMessages(prev => [
+                ...prev.slice(0, -1),
+                { role: 'assistant', content: fullText },
+              ]);
+            }
           } catch { /* ignore parse errors */ }
         }
       }
