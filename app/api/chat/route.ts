@@ -35,10 +35,15 @@ export async function POST(req: Request) {
           messages,
         });
 
-        for await (const text of anthropicStream.text_stream) {
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ text })}\n\n`)
-          );
+        for await (const event of anthropicStream) {
+          if (
+            event.type === 'content_block_delta' &&
+            event.delta.type === 'text_delta'
+          ) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`)
+            );
+          }
         }
 
         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
