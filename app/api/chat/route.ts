@@ -1,6 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
-
-const client = new Anthropic();
+import OpenAI from 'openai';
 
 const SYSTEM_PROMPT = `You are a friendly and encouraging Spanish language tutor. Your job is to help users practice Spanish by:
 
@@ -21,35 +19,42 @@ If the user writes in English, gently encourage them to try in Spanish and offer
 Keep responses concise and focused — this is a chat, not a lecture.`;
 
 export async function POST(req: Request) {
-  const { messages } = await req.json();
+  const { messages, apiKey } = await req.json();
 
+  if (!apiKey) {
+    return new Response(JSON.stringify({ error: 'API key required' }), { status: 400 });
+  }
+
+  const openai = new OpenAI({ apiKey });
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        const anthropicStream = client.messages.stream({
-          model: 'claude-opus-4-6',
+        const openaiStream = await openai.chat.completions.create({
+          model: 'gpt-4o',
           max_tokens: 1024,
-          system: SYSTEM_PROMPT,
-          messages,
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            ...messages,
+          ],
+          stream: true,
         });
 
-        for await (const event of anthropicStream) {
-          if (
-            event.type === 'content_block_delta' &&
-            event.delta.type === 'text_delta'
-          ) {
+        for await (const chunk of openaiStream) {
+          const text = chunk.choices[0]?.delta?.content ?? '';
+          if (text) {
             controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`)
+              encoder.encode(`data: ${JSON.stringify({ text })}\n\n`)
             );
           }
         }
 
         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
       } catch (err) {
+        const message = err instanceof Error ? err.message : 'Stream error';
         controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ error: 'Stream error' })}\n\n`)
+          encoder.encode(`data: ${JSON.stringify({ error: message })}\n\n`)
         );
       } finally {
         controller.close();

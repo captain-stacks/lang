@@ -25,6 +25,75 @@ header {
 header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
 header p { font-size: 13px; opacity: 0.85; }
 
+.key-panel {
+  background: #fffff0;
+  border-bottom: 1px solid #f6e05e;
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.key-panel-set {
+  background: #f0fff4;
+  border-bottom-color: #9ae6b4;
+  font-size: 13px;
+  color: #276749;
+}
+
+.key-label {
+  font-size: 13px;
+  color: #744210;
+  white-space: nowrap;
+}
+
+.key-input {
+  flex: 1;
+  padding: 7px 12px;
+  border: 1.5px solid #f6e05e;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: monospace;
+  outline: none;
+  min-width: 0;
+  transition: border-color 0.15s;
+}
+
+.key-input:focus { border-color: #d69e2e; }
+
+.key-btn {
+  background: #d69e2e;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.key-btn:hover { background: #b7791f; }
+
+.key-btn-cancel {
+  background: #a0aec0;
+}
+
+.key-btn-cancel:hover { background: #718096; }
+
+.key-change-btn {
+  background: none;
+  border: none;
+  color: #276749;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  font-family: inherit;
+}
+
 .hint-bar {
   background: #fff5f5;
   border-bottom: 1px solid #fed7d7;

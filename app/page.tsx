@@ -20,7 +20,7 @@ function renderMarkdown(text: string): string {
 }
 
 const STARTERS = [
-  { label: '¡Hola! I\'m a student', text: 'Hola! Yo soy estudiante y quiero aprender español.' },
+  { label: "¡Hola! I'm a student", text: 'Hola! Yo soy estudiante y quiero aprender español.' },
   { label: 'Yesterday I went to the store', text: 'Ayer yo fue al supermercado.' },
   { label: 'I love Mexican food', text: 'Me gusta mucho la comida mexicano.' },
   { label: 'How can I improve?', text: '¿Cómo puedo mejorar mi español?' },
@@ -37,8 +37,24 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [keyInput, setKeyInput] = useState('');
+  const [editingKey, setEditingKey] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const keyInputRef = useRef<HTMLInputElement>(null);
+
+  // Load saved key on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('openai_api_key');
+    if (saved) setApiKey(saved);
+    else setEditingKey(true);
+  }, []);
+
+  // Focus key input when editing
+  useEffect(() => {
+    if (editingKey) keyInputRef.current?.focus();
+  }, [editingKey]);
 
   useEffect(() => {
     if (chatRef.current) {
@@ -46,9 +62,19 @@ export default function Home() {
     }
   }, [messages]);
 
+  const saveKey = () => {
+    const k = keyInput.trim();
+    if (!k) return;
+    setApiKey(k);
+    localStorage.setItem('openai_api_key', k);
+    setKeyInput('');
+    setEditingKey(false);
+    textareaRef.current?.focus();
+  };
+
   const sendMessage = useCallback(async (overrideText?: string) => {
     const content = overrideText ?? input.trim();
-    if (!content || isStreaming) return;
+    if (!content || isStreaming || !apiKey) return;
 
     setInput('');
     setIsStreaming(true);
@@ -60,7 +86,7 @@ export default function Home() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages: newMessages, apiKey }),
       });
 
       if (!response.ok || !response.body) throw new Error('Network error');
@@ -103,7 +129,7 @@ export default function Home() {
 
     setIsStreaming(false);
     textareaRef.current?.focus();
-  }, [input, isStreaming, messages]);
+  }, [input, isStreaming, messages, apiKey]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -129,10 +155,39 @@ export default function Home() {
         </div>
       </header>
 
+      {/* API Key bar */}
+      {editingKey ? (
+        <div className="key-panel">
+          <span className="key-label">🔑 OpenAI API key:</span>
+          <input
+            ref={keyInputRef}
+            className="key-input"
+            type="password"
+            value={keyInput}
+            onChange={e => setKeyInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && saveKey()}
+            placeholder="sk-..."
+          />
+          <button className="key-btn" onClick={saveKey}>Save</button>
+          {apiKey && (
+            <button className="key-btn key-btn-cancel" onClick={() => setEditingKey(false)}>
+              Cancel
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="key-panel key-panel-set">
+          <span>🔑 API key set</span>
+          <button className="key-change-btn" onClick={() => { setKeyInput(''); setEditingKey(true); }}>
+            Change
+          </button>
+        </div>
+      )}
+
       <div className="hint-bar">
         <strong>Quick phrases:</strong>
         {QUICK_PHRASES.map(({ label, text }) => (
-          <button key={label} onClick={() => sendMessage(text)}>{label}</button>
+          <button key={label} onClick={() => sendMessage(text)} disabled={!apiKey}>{label}</button>
         ))}
       </div>
 
@@ -141,14 +196,20 @@ export default function Home() {
           <div className="welcome">
             <div className="emoji">🌟</div>
             <h2>¡Bienvenido! Welcome!</h2>
-            <p>Type anything in Spanish below. I&apos;ll correct mistakes, explain grammar, and help you improve. Try a starter or write your own!</p>
-            <div className="starter-chips">
-              {STARTERS.map(({ label, text }) => (
-                <button key={label} className="chip" onClick={() => sendMessage(text)}>
-                  {label}
-                </button>
-              ))}
-            </div>
+            {apiKey ? (
+              <>
+                <p>Type anything in Spanish below. I&apos;ll correct mistakes, explain grammar, and help you improve.</p>
+                <div className="starter-chips">
+                  {STARTERS.map(({ label, text }) => (
+                    <button key={label} className="chip" onClick={() => sendMessage(text)}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p>Enter your OpenAI API key above to get started.</p>
+            )}
           </div>
         )}
 
@@ -180,10 +241,11 @@ export default function Home() {
             value={input}
             onChange={handleInput}
             onKeyDown={handleKeyDown}
-            placeholder="Escribe en español aquí... (Write in Spanish here...)"
+            placeholder={apiKey ? 'Escribe en español aquí... (Write in Spanish here...)' : 'Enter your API key above to start chatting'}
             rows={1}
+            disabled={!apiKey || isStreaming}
           />
-          <button className="send-btn" onClick={() => sendMessage()} disabled={isStreaming}>
+          <button className="send-btn" onClick={() => sendMessage()} disabled={!apiKey || isStreaming}>
             Enviar →
           </button>
         </div>
