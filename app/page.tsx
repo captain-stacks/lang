@@ -51,9 +51,11 @@ export default function Home() {
   const [apiKey, setApiKey] = useState('');
   const [keyInput, setKeyInput] = useState('');
   const [editingKey, setEditingKey] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const chatRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const keyInputRef = useRef<HTMLInputElement>(null);
+  const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('openai_api_key');
@@ -81,10 +83,36 @@ export default function Home() {
     textareaRef.current?.focus();
   };
 
+  const fetchSuggestions = async (text: string, key: string) => {
+    if (!text.trim() || !key) { setSuggestions([]); return; }
+    try {
+      const res = await fetch('/api/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, apiKey: key }),
+      });
+      const data = await res.json();
+      setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
+    } catch {
+      setSuggestions([]);
+    }
+  };
+
+  const applySuggestion = (word: string) => {
+    const newInput = input.endsWith(' ') ? input + word : input + ' ' + word;
+    setInput(newInput);
+    setSuggestions([]);
+    textareaRef.current?.focus();
+    if (suggestTimer.current) clearTimeout(suggestTimer.current);
+    suggestTimer.current = setTimeout(() => fetchSuggestions(newInput, apiKey), 700);
+  };
+
   const sendMessage = useCallback(async (overrideText?: string) => {
     const content = overrideText ?? input.trim();
     if (!content || isStreaming || !apiKey) return;
 
+    setSuggestions([]);
+    if (suggestTimer.current) clearTimeout(suggestTimer.current);
     setInput('');
     setIsStreaming(true);
 
@@ -172,10 +200,18 @@ export default function Home() {
   };
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
+    const value = e.target.value;
+    setInput(value);
     const el = e.target;
     el.style.height = 'auto';
     el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+
+    if (suggestTimer.current) clearTimeout(suggestTimer.current);
+    if (value.trim()) {
+      suggestTimer.current = setTimeout(() => fetchSuggestions(value, apiKey), 700);
+    } else {
+      setSuggestions([]);
+    }
   };
 
   return (
@@ -257,6 +293,15 @@ export default function Home() {
       </div>
 
       <footer>
+        {suggestions.length > 0 && !isStreaming && (
+          <div className="suggestions">
+            {suggestions.map((s, i) => (
+              <button key={i} className="suggestion-chip" onClick={() => applySuggestion(s)}>
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="input-row">
           <textarea
             ref={textareaRef}

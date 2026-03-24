@@ -298,3 +298,28 @@ footer {
 }
 
 .chip:hover { border-color: #ef4444; color: #ef4444; background: #1c0a0a; }
+
+.suggestions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.suggestion-chip {
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 16px;
+  padding: 4px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #9ca3af;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.suggestion-chip:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+  background: #1c0a0a;
+}
