@@ -180,15 +180,7 @@ export default function Home() {
 
   return (
     <>
-      <header>
-        <div className="flag">🇪🇸</div>
-        <div>
-          <h1>Spanish Learning Chat</h1>
-          <p>Practice Spanish — get instant hints, corrections &amp; tips</p>
-        </div>
-      </header>
-
-      {editingKey ? (
+      {editingKey && (
         <div className="key-panel">
           <span className="key-label">🔑 OpenAI API key:</span>
           <input
@@ -206,13 +198,6 @@ export default function Home() {
               Cancel
             </button>
           )}
-        </div>
-      ) : (
-        <div className="key-panel key-panel-set">
-          <span>🔑 API key set</span>
-          <button className="key-change-btn" onClick={() => { setKeyInput(''); setEditingKey(true); }}>
-            Change
-          </button>
         </div>
       )}
 
@@ -286,7 +271,12 @@ export default function Home() {
             Enviar →
           </button>
         </div>
-        <div className="input-hint">Press Enter to send · Shift+Enter for new line</div>
+        <div className="input-hint">
+          <button className="change-key-btn" onClick={() => { setKeyInput(''); setEditingKey(true); }}>
+            🔑 {apiKey ? 'Change key' : 'Set API key'}
+          </button>
+          <span>Enter to send · Shift+Enter for new line</span>
+        </div>
       </footer>
     </>
   );
