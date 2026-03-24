@@ -5,6 +5,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  translation?: string;
 }
 
 function renderMarkdown(text: string): string {
@@ -17,6 +18,16 @@ function renderMarkdown(text: string): string {
     .replace(/\n\n/g, '</p><p>')
     .replace(/\n/g, '<br>')
     .replace(/^/, '<p>').replace(/$/, '</p>');
+}
+
+async function fetchTranslation(text: string, apiKey: string): Promise<string> {
+  const res = await fetch('/api/translate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, apiKey }),
+  });
+  const { translation } = await res.json();
+  return translation ?? '';
 }
 
 const STARTERS = [
@@ -44,14 +55,12 @@ export default function Home() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const keyInputRef = useRef<HTMLInputElement>(null);
 
-  // Load saved key on mount
   useEffect(() => {
     const saved = localStorage.getItem('openai_api_key');
     if (saved) setApiKey(saved);
     else setEditingKey(true);
   }, []);
 
-  // Focus key input when editing
   useEffect(() => {
     if (editingKey) keyInputRef.current?.focus();
   }, [editingKey]);
@@ -79,9 +88,22 @@ export default function Home() {
     setInput('');
     setIsStreaming(true);
 
+    const userIndex = messages.length;
     const newMessages: Message[] = [...messages, { role: 'user', content }];
     setMessages([...newMessages, { role: 'assistant', content: '' }]);
 
+    // Translate user input concurrently with streaming
+    fetchTranslation(content, apiKey).then(translation => {
+      setMessages(prev => {
+        const updated = [...prev];
+        if (updated[userIndex]?.role === 'user') {
+          updated[userIndex] = { ...updated[userIndex], translation };
+        }
+        return updated;
+      });
+    });
+
+    let fullText = '';
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -94,7 +116,6 @@ export default function Home() {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      let fullText = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -120,6 +141,18 @@ export default function Home() {
           } catch { /* ignore parse errors */ }
         }
       }
+
+      // Translate assistant response after streaming completes
+      fetchTranslation(fullText, apiKey).then(translation => {
+        setMessages(prev => {
+          const updated = [...prev];
+          const last = updated.length - 1;
+          if (updated[last]?.role === 'assistant') {
+            updated[last] = { ...updated[last], translation };
+          }
+          return updated;
+        });
+      });
     } catch {
       setMessages(prev => [
         ...prev.slice(0, -1),
@@ -155,7 +188,6 @@ export default function Home() {
         </div>
       </header>
 
-      {/* API Key bar */}
       {editingKey ? (
         <div className="key-panel">
           <span className="key-label">🔑 OpenAI API key:</span>
@@ -216,20 +248,25 @@ export default function Home() {
         {messages.map((msg, i) => (
           <div key={i} className={`message ${msg.role}`}>
             <div className="avatar">{msg.role === 'user' ? '👤' : '🤖'}</div>
-            {msg.role === 'user' ? (
-              <div className="bubble">{msg.content}</div>
-            ) : msg.content === '' ? (
-              <div className="bubble">
-                <div className="typing-indicator">
-                  <span /><span /><span />
+            <div className="bubble-wrap">
+              {msg.role === 'user' ? (
+                <div className="bubble">{msg.content}</div>
+              ) : msg.content === '' ? (
+                <div className="bubble">
+                  <div className="typing-indicator"><span /><span /><span /></div>
                 </div>
-              </div>
-            ) : (
-              <div
-                className="bubble"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
-              />
-            )}
+              ) : (
+                <div
+                  className="bubble"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
+                />
+              )}
+              {msg.translation && (
+                <div className={`translation ${msg.role}`}>
+                  🌐 {msg.translation}
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>

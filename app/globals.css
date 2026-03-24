@@ -135,6 +135,22 @@ header p { font-size: 13px; opacity: 0.85; }
 
 .message.user { align-self: flex-end; flex-direction: row-reverse; }
 
+.bubble-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 640px;
+}
+
+.translation {
+  font-size: 12px;
+  font-style: italic;
+  color: #718096;
+  padding: 0 4px;
+}
+
+.translation.user { text-align: right; }
+
 .avatar {
   width: 36px;
   height: 36px;
@@ -154,7 +170,6 @@ header p { font-size: 13px; opacity: 0.85; }
   border-radius: 16px;
   line-height: 1.6;
   font-size: 15px;
-  max-width: 640px;
 }
 
 .message.user .bubble {
