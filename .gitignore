@@ -1,6 +1,6 @@
-__pycache__/
-*.pyc
-*.pyo
+.next/
+node_modules/
 .env
-.venv/
-venv/
+.env.local
+*.pyc
+__pycache__/

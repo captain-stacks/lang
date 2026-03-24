@@ -1,0 +1,192 @@
+'use client';
+
+import { useState, useRef, useEffect, useCallback } from 'react';
+
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+function renderMarkdown(text: string): string {
+  return text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/✏️([^\n]+)/g, '<div class="correction">✏️$1</div>')
+    .replace(/💡([^\n]+)/g, '<div class="tip">💡$1</div>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>')
+    .replace(/^/, '<p>').replace(/$/, '</p>');
+}
+
+const STARTERS = [
+  { label: '¡Hola! I\'m a student', text: 'Hola! Yo soy estudiante y quiero aprender español.' },
+  { label: 'Yesterday I went to the store', text: 'Ayer yo fue al supermercado.' },
+  { label: 'I love Mexican food', text: 'Me gusta mucho la comida mexicano.' },
+  { label: 'How can I improve?', text: '¿Cómo puedo mejorar mi español?' },
+];
+
+const QUICK_PHRASES = [
+  { label: '👋 Introductions', text: 'Hola, me llamo...' },
+  { label: '📖 Ser vs Estar', text: '¿Puedes explicarme la diferencia entre ser y estar?' },
+  { label: '⏳ Past tense', text: 'Quiero practicar el pretérito indefinido.' },
+  { label: '🔤 Translations', text: "¿Cómo se dice 'I am learning' en español?" },
+];
+
+export default function Home() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const chatRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (chatRef.current) {
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const sendMessage = useCallback(async (overrideText?: string) => {
+    const content = overrideText ?? input.trim();
+    if (!content || isStreaming) return;
+
+    setInput('');
+    setIsStreaming(true);
+
+    const newMessages: Message[] = [...messages, { role: 'user', content }];
+    setMessages([...newMessages, { role: 'assistant', content: '' }]);
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: newMessages }),
+      });
+
+      if (!response.ok || !response.body) throw new Error('Network error');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let fullText = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6);
+          if (data === '[DONE]') break;
+          try {
+            const { text: chunk } = JSON.parse(data);
+            fullText += chunk;
+            setMessages(prev => [
+              ...prev.slice(0, -1),
+              { role: 'assistant', content: fullText },
+            ]);
+          } catch { /* ignore parse errors */ }
+        }
+      }
+    } catch {
+      setMessages(prev => [
+        ...prev.slice(0, -1),
+        { role: 'assistant', content: 'Lo siento — something went wrong. Please try again.' },
+      ]);
+    }
+
+    setIsStreaming(false);
+    textareaRef.current?.focus();
+  }, [input, isStreaming, messages]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    const el = e.target;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+  };
+
+  return (
+    <>
+      <header>
+        <div className="flag">🇪🇸</div>
+        <div>
+          <h1>Spanish Learning Chat</h1>
+          <p>Practice Spanish — get instant hints, corrections &amp; tips</p>
+        </div>
+      </header>
+
+      <div className="hint-bar">
+        <strong>Quick phrases:</strong>
+        {QUICK_PHRASES.map(({ label, text }) => (
+          <button key={label} onClick={() => sendMessage(text)}>{label}</button>
+        ))}
+      </div>
+
+      <div className="chat" ref={chatRef}>
+        {messages.length === 0 && (
+          <div className="welcome">
+            <div className="emoji">🌟</div>
+            <h2>¡Bienvenido! Welcome!</h2>
+            <p>Type anything in Spanish below. I&apos;ll correct mistakes, explain grammar, and help you improve. Try a starter or write your own!</p>
+            <div className="starter-chips">
+              {STARTERS.map(({ label, text }) => (
+                <button key={label} className="chip" onClick={() => sendMessage(text)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {messages.map((msg, i) => (
+          <div key={i} className={`message ${msg.role}`}>
+            <div className="avatar">{msg.role === 'user' ? '👤' : '🤖'}</div>
+            {msg.role === 'user' ? (
+              <div className="bubble">{msg.content}</div>
+            ) : msg.content === '' ? (
+              <div className="bubble">
+                <div className="typing-indicator">
+                  <span /><span /><span />
+                </div>
+              </div>
+            ) : (
+              <div
+                className="bubble"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+
+      <footer>
+        <div className="input-row">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={handleInput}
+            onKeyDown={handleKeyDown}
+            placeholder="Escribe en español aquí... (Write in Spanish here...)"
+            rows={1}
+          />
+          <button className="send-btn" onClick={() => sendMessage()} disabled={isStreaming}>
+            Enviar →
+          </button>
+        </div>
+        <div className="input-hint">Press Enter to send · Shift+Enter for new line</div>
+      </footer>
+    </>
+  );
+}
