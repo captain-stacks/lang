@@ -98,10 +98,27 @@ export default function Home() {
     }
   };
 
-  const applySuggestion = (word: string) => {
-    const newInput = input.endsWith(' ') ? input + word : input + ' ' + word;
+  const partialWord = input.endsWith(' ') ? '' : (input.trimEnd().split(/\s+/).pop() ?? '');
+
+  const ghostText = (() => {
+    if (!suggestions.length || isStreaming) return '';
+    const top = suggestions[0];
+    if (partialWord && top.toLowerCase().startsWith(partialWord.toLowerCase())) {
+      return top.slice(partialWord.length);
+    }
+    if (!partialWord) return top;
+    return '';
+  })();
+
+  const applyWord = (word: string) => {
+    const base = partialWord
+      ? input.slice(0, input.length - partialWord.length)
+      : input.endsWith(' ') ? input : input + ' ';
+    const newInput = base + word + ' ';
     setInput(newInput);
     setSuggestions([]);
+    const el = textareaRef.current;
+    if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 140) + 'px'; }
     textareaRef.current?.focus();
     if (suggestTimer.current) clearTimeout(suggestTimer.current);
     suggestTimer.current = setTimeout(() => fetchSuggestions(newInput, apiKey), 700);
@@ -193,6 +210,17 @@ export default function Home() {
   }, [input, isStreaming, messages, apiKey]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Tab' && ghostText) {
+      e.preventDefault();
+      const newInput = input + ghostText + ' ';
+      setInput(newInput);
+      setSuggestions([]);
+      const el = textareaRef.current;
+      if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 140) + 'px'; }
+      if (suggestTimer.current) clearTimeout(suggestTimer.current);
+      suggestTimer.current = setTimeout(() => fetchSuggestions(newInput, apiKey), 700);
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
@@ -295,23 +323,32 @@ export default function Home() {
       <footer>
         {suggestions.length > 0 && !isStreaming && (
           <div className="suggestions">
-            {suggestions.map((s, i) => (
-              <button key={i} className="suggestion-chip" onClick={() => applySuggestion(s)}>
+            {ghostText && <span className="ghost-hint">Tab ↹</span>}
+            {suggestions.slice(ghostText ? 1 : 0).map((s, i) => (
+              <button key={i} className="suggestion-chip" onClick={() => applyWord(s)}>
                 {s}
               </button>
             ))}
           </div>
         )}
         <div className="input-row">
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={handleInput}
-            onKeyDown={handleKeyDown}
-            placeholder={apiKey ? 'Escribe en español aquí... (Write in Spanish here...)' : 'Enter your API key above to start chatting'}
-            rows={1}
-            disabled={!apiKey || isStreaming}
-          />
+          <div className="input-wrapper">
+            {ghostText && (
+              <div className="ghost-overlay" aria-hidden="true">
+                <span style={{ color: 'transparent' }}>{input}</span>
+                <span className="ghost-text">{ghostText}</span>
+              </div>
+            )}
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={handleInput}
+              onKeyDown={handleKeyDown}
+              placeholder={apiKey ? 'Escribe en español aquí... (Write in Spanish here...)' : 'Enter your API key above to start chatting'}
+              rows={1}
+              disabled={!apiKey || isStreaming}
+            />
+          </div>
           <button className="send-btn" onClick={() => sendMessage()} disabled={!apiKey || isStreaming}>
             Enviar →
           </button>
@@ -320,7 +357,7 @@ export default function Home() {
           <button className="change-key-btn" onClick={() => { setKeyInput(''); setEditingKey(true); }}>
             🔑 {apiKey ? 'Change key' : 'Set API key'}
           </button>
-          <span>Enter to send · Shift+Enter for new line</span>
+          <span>Enter to send · Shift+Enter for new line · Tab to autocomplete</span>
         </div>
       </footer>
     </>

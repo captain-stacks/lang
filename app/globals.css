@@ -210,8 +210,34 @@ footer {
   align-items: flex-end;
 }
 
-.input-row textarea {
+.input-wrapper {
   flex: 1;
+  position: relative;
+  background: #111827;
+  border-radius: 12px;
+}
+
+.ghost-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  padding: 12px 16px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  font-size: 15px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ghost-text {
+  color: #4b5563;
+}
+
+.input-row textarea {
+  width: 100%;
   padding: 12px 16px;
   border: 2px solid #374151;
   border-radius: 12px;
@@ -222,9 +248,11 @@ footer {
   outline: none;
   font-family: inherit;
   line-height: 1.5;
-  background: #111827;
+  background: transparent;
   color: #f3f4f6;
   transition: border-color 0.15s;
+  position: relative;
+  z-index: 1;
 }
 
 .input-row textarea:focus { border-color: #ef4444; }
@@ -322,4 +350,15 @@ footer {
   border-color: #ef4444;
   color: #ef4444;
   background: #1c0a0a;
+}
+
+.ghost-hint {
+  font-size: 11px;
+  color: #6b7280;
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  padding: 3px 7px;
+  font-family: monospace;
+  align-self: center;
 }
